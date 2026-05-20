@@ -61,6 +61,33 @@ class RoomManager {
             room: this.cloneRoomState(nextRoom),
         };
     }
+    setActiveProduct(roomCode, product) {
+        const room = room_store_1.roomStore.get(roomCode);
+        if (!room) {
+            return null;
+        }
+        const nextRoom = this.cloneRoomState(room);
+        nextRoom.activeProduct = this.cloneProduct(product);
+        nextRoom.currentOverlayState = {
+            overlayType: "product",
+            visible: true,
+            title: product.name,
+            subtitle: product.description ?? undefined,
+        };
+        this.saveRoom(nextRoom);
+        return this.cloneRoomState(nextRoom);
+    }
+    clearActiveProduct(roomCode) {
+        const room = room_store_1.roomStore.get(roomCode);
+        if (!room) {
+            return null;
+        }
+        const nextRoom = this.cloneRoomState(room);
+        delete nextRoom.activeProduct;
+        nextRoom.currentOverlayState = this.createInitialOverlayState();
+        this.saveRoom(nextRoom);
+        return this.cloneRoomState(nextRoom);
+    }
     leaveRoom(socketId) {
         const room = this.getRoomBySocketId(socketId);
         if (!room) {
@@ -118,7 +145,6 @@ class RoomManager {
                 },
             ],
             createdAt: new Date(),
-            activeProduct: null,
             activeDiscount: null,
             currentOverlayState: this.createInitialOverlayState(),
         };
@@ -130,19 +156,26 @@ class RoomManager {
         };
     }
     cloneRoomState(roomState) {
-        return {
+        const clonedRoomState = {
             roomCode: roomState.roomCode,
             participants: roomState.participants.map((participant) => ({
                 ...participant,
             })),
             createdAt: new Date(roomState.createdAt),
-            activeProduct: roomState.activeProduct
-                ? { ...roomState.activeProduct }
-                : null,
             activeDiscount: roomState.activeDiscount
                 ? { ...roomState.activeDiscount }
                 : null,
             currentOverlayState: { ...roomState.currentOverlayState },
+        };
+        if (roomState.activeProduct) {
+            clonedRoomState.activeProduct = this.cloneProduct(roomState.activeProduct);
+        }
+        return clonedRoomState;
+    }
+    cloneProduct(product) {
+        return {
+            ...product,
+            createdAt: new Date(product.createdAt),
         };
     }
     generateUniqueRoomCode() {

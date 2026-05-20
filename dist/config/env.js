@@ -10,7 +10,9 @@ const zod_1 = require("zod");
 dotenv_1.default.config();
 const envSchema = zod_1.z.object({
     PORT: zod_1.z.coerce.number().int().positive().default(3000),
-    DATABASE_URL: zod_1.z.string().default(""),
+    DATABASE_URL: zod_1.z
+        .string()
+        .default("mysql://root:root@127.0.0.1:3306/express_live_simulator_backend"),
 });
 const parsedEnv = envSchema.safeParse(process.env);
 if (!parsedEnv.success) {

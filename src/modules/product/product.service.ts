@@ -1,11 +1,23 @@
-// Product orchestration will be implemented in a later phase when the realtime event contract is finalized.
+import type { Product } from "@prisma/client";
+
+import { prisma } from "../../lib/prisma";
+
+// Product access stays behind this service so realtime handlers only handle flow control.
 export class ProductService {
-  public showProduct(): void {
-    // TODO: implement product presentation workflow.
+  public async getProductById(productId: string): Promise<Product | null> {
+    return prisma.product.findUnique({
+      where: {
+        id: productId,
+      },
+    });
   }
 
-  public clearProduct(): void {
-    // TODO: implement product reset workflow.
+  public async listProducts(): Promise<Product[]> {
+    return prisma.product.findMany({
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
   }
 }
 

@@ -1,13 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productService = exports.ProductService = void 0;
-// Product orchestration will be implemented in a later phase when the realtime event contract is finalized.
+const prisma_1 = require("../../lib/prisma");
+// Product access stays behind this service so realtime handlers only handle flow control.
 class ProductService {
-    showProduct() {
-        // TODO: implement product presentation workflow.
+    async getProductById(productId) {
+        return prisma_1.prisma.product.findUnique({
+            where: {
+                id: productId,
+            },
+        });
     }
-    clearProduct() {
-        // TODO: implement product reset workflow.
+    async listProducts() {
+        return prisma_1.prisma.product.findMany({
+            orderBy: {
+                createdAt: "asc",
+            },
+        });
     }
 }
 exports.ProductService = ProductService;

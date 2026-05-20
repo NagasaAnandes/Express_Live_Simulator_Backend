@@ -6,6 +6,7 @@ import {
   type RoomSnapshot,
   type RoomState,
 } from "../../types/socket.types";
+import type { Product } from "@prisma/client";
 import { RoomErrorCode } from "../events/events";
 import { roomStore } from "../state/room.store";
 
@@ -110,6 +111,48 @@ export class RoomManager {
     };
   }
 
+  public setActiveProduct(
+    roomCode: string,
+    product: Product,
+  ): RoomState | null {
+    const room = roomStore.get(roomCode);
+
+    if (!room) {
+      return null;
+    }
+
+    const nextRoom = this.cloneRoomState(room);
+
+    nextRoom.activeProduct = this.cloneProduct(product);
+    nextRoom.currentOverlayState = {
+      overlayType: "product",
+      visible: true,
+      title: product.name,
+      subtitle: product.description ?? undefined,
+    };
+
+    this.saveRoom(nextRoom);
+
+    return this.cloneRoomState(nextRoom);
+  }
+
+  public clearActiveProduct(roomCode: string): RoomState | null {
+    const room = roomStore.get(roomCode);
+
+    if (!room) {
+      return null;
+    }
+
+    const nextRoom = this.cloneRoomState(room);
+
+    delete nextRoom.activeProduct;
+    nextRoom.currentOverlayState = this.createInitialOverlayState();
+
+    this.saveRoom(nextRoom);
+
+    return this.cloneRoomState(nextRoom);
+  }
+
   public leaveRoom(socketId: string): RoomLeaveResult | null {
     const room = this.getRoomBySocketId(socketId);
 
@@ -186,7 +229,6 @@ export class RoomManager {
         },
       ],
       createdAt: new Date(),
-      activeProduct: null,
       activeDiscount: null,
       currentOverlayState: this.createInitialOverlayState(),
     };
@@ -200,19 +242,31 @@ export class RoomManager {
   }
 
   private cloneRoomState(roomState: RoomState): RoomState {
-    return {
+    const clonedRoomState: RoomState = {
       roomCode: roomState.roomCode,
       participants: roomState.participants.map((participant) => ({
         ...participant,
       })),
       createdAt: new Date(roomState.createdAt),
-      activeProduct: roomState.activeProduct
-        ? { ...roomState.activeProduct }
-        : null,
       activeDiscount: roomState.activeDiscount
         ? { ...roomState.activeDiscount }
         : null,
       currentOverlayState: { ...roomState.currentOverlayState },
+    };
+
+    if (roomState.activeProduct) {
+      clonedRoomState.activeProduct = this.cloneProduct(
+        roomState.activeProduct,
+      );
+    }
+
+    return clonedRoomState;
+  }
+
+  private cloneProduct(product: Product): Product {
+    return {
+      ...product,
+      createdAt: new Date(product.createdAt),
     };
   }
 

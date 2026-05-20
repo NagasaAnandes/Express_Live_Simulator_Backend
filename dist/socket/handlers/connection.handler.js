@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerConnectionHandler = registerConnectionHandler;
 const events_1 = require("../events/events");
+const product_handler_1 = require("./product.handler");
 const room_manager_1 = require("../rooms/room.manager");
 // Socket connection wiring lives here so future room and role logic stays isolated from server bootstrap.
 function registerConnectionHandler(io) {
+    (0, product_handler_1.registerProductHandler)(io);
     const detachFromCurrentRoom = (socket) => {
         const roomCode = socket.data.roomCode;
         if (!roomCode) {
@@ -42,6 +44,7 @@ function registerConnectionHandler(io) {
             socket.join(joinResult.room.roomCode);
             socket.emit(events_1.SocketServerEvent.ROOM_JOINED, room_manager_1.roomManager.toSnapshot(joinResult.room));
             io.to(joinResult.room.roomCode).emit(events_1.SocketServerEvent.ROOM_UPDATED, joinResult.room);
+            (0, product_handler_1.syncRecorderProductOverlay)(socket, joinResult.room);
         });
         socket.on(events_1.SocketClientEvent.LEAVE_ROOM, () => {
             const roomCode = socket.data.roomCode;

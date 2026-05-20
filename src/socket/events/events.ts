@@ -3,6 +3,8 @@ export enum SocketClientEvent {
   CREATE_ROOM = "CREATE_ROOM",
   JOIN_ROOM = "JOIN_ROOM",
   LEAVE_ROOM = "LEAVE_ROOM",
+  SHOW_PRODUCT = "SHOW_PRODUCT",
+  CLEAR_PRODUCT = "CLEAR_PRODUCT",
 }
 
 export enum SocketServerEvent {
@@ -10,6 +12,9 @@ export enum SocketServerEvent {
   ROOM_JOINED = "ROOM_JOINED",
   ROOM_UPDATED = "ROOM_UPDATED",
   ROOM_ERROR = "ROOM_ERROR",
+  PRODUCT_UPDATED = "PRODUCT_UPDATED",
+  PRODUCT_CLEARED = "PRODUCT_CLEARED",
+  PRODUCT_ERROR = "PRODUCT_ERROR",
 }
 
 export enum RoomErrorCode {
@@ -17,4 +22,11 @@ export enum RoomErrorCode {
   ROOM_FULL = "ROOM_FULL",
   ROLE_ALREADY_USED = "ROLE_ALREADY_USED",
   INVALID_ROLE = "INVALID_ROLE",
+}
+
+export enum ProductErrorCode {
+  ROOM_NOT_FOUND = "ROOM_NOT_FOUND",
+  ROOM_MISMATCH = "ROOM_MISMATCH",
+  INVALID_ROLE = "INVALID_ROLE",
+  PRODUCT_NOT_FOUND = "PRODUCT_NOT_FOUND",
 }

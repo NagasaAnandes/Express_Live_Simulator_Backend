@@ -1,6 +1,10 @@
 import type { Server, Socket } from "socket.io";
 
 import { SocketClientEvent, SocketServerEvent } from "../events/events";
+import {
+  registerProductHandler,
+  syncRecorderProductOverlay,
+} from "./product.handler";
 import { roomManager } from "../rooms/room.manager";
 import type {
   ClientToServerEvents,
@@ -18,6 +22,8 @@ export function registerConnectionHandler(
     SocketServerState
   >,
 ): void {
+  registerProductHandler(io);
+
   const detachFromCurrentRoom = (
     socket: Socket<
       ClientToServerEvents,
@@ -92,6 +98,8 @@ export function registerConnectionHandler(
         SocketServerEvent.ROOM_UPDATED,
         joinResult.room,
       );
+
+      syncRecorderProductOverlay(socket, joinResult.room);
     });
 
     socket.on(SocketClientEvent.LEAVE_ROOM, () => {

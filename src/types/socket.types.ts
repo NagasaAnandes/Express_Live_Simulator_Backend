@@ -1,7 +1,10 @@
 // Shared socket and room types define the realtime contract without introducing business logic.
 
+import type { Product } from "@prisma/client";
+
 import {
   RoomErrorCode,
+  ProductErrorCode,
   SocketClientEvent,
   SocketServerEvent,
 } from "../socket/events/events";
@@ -17,13 +20,6 @@ export type OverlayMode = "idle" | "product" | "discount" | "comment";
 export interface RoomParticipant {
   socketId: string;
   role: ParticipantRole;
-}
-
-export interface ActiveProductState {
-  productId: string;
-  name: string;
-  price: number;
-  imageUrl?: string;
 }
 
 export interface ActiveDiscountState {
@@ -43,7 +39,7 @@ export interface RoomState {
   roomCode: string;
   participants: RoomParticipant[];
   createdAt: Date;
-  activeProduct: ActiveProductState | null;
+  activeProduct?: Product;
   activeDiscount: ActiveDiscountState | null;
   currentOverlayState: CurrentOverlayState;
 }
@@ -64,6 +60,27 @@ export interface RoomErrorPayload {
   roomCode?: string;
 }
 
+export interface ProductShowPayload {
+  roomCode: string;
+  productId: string;
+}
+
+export interface ProductClearPayload {
+  roomCode: string;
+}
+
+export interface ProductOverlayPayload {
+  roomCode: string;
+  product: Product;
+}
+
+export interface ProductErrorPayload {
+  code: ProductErrorCode;
+  message: string;
+  roomCode?: string;
+  productId?: string;
+}
+
 export interface SocketServerState {
   roomCode?: string;
   role?: ParticipantRole;
@@ -74,12 +91,17 @@ export interface ServerToClientEvents {
   [SocketServerEvent.ROOM_JOINED]: (payload: RoomSnapshot) => void;
   [SocketServerEvent.ROOM_UPDATED]: (payload: RoomState) => void;
   [SocketServerEvent.ROOM_ERROR]: (payload: RoomErrorPayload) => void;
+  [SocketServerEvent.PRODUCT_UPDATED]: (payload: ProductOverlayPayload) => void;
+  [SocketServerEvent.PRODUCT_CLEARED]: (payload: ProductClearPayload) => void;
+  [SocketServerEvent.PRODUCT_ERROR]: (payload: ProductErrorPayload) => void;
 }
 
 export interface ClientToServerEvents {
   [SocketClientEvent.CREATE_ROOM]: () => void;
   [SocketClientEvent.JOIN_ROOM]: (payload: JoinRoomPayload) => void;
   [SocketClientEvent.LEAVE_ROOM]: () => void;
+  [SocketClientEvent.SHOW_PRODUCT]: (payload: ProductShowPayload) => void;
+  [SocketClientEvent.CLEAR_PRODUCT]: (payload: ProductClearPayload) => void;
 }
 
 export interface InterServerEvents {

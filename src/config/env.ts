@@ -6,7 +6,9 @@ dotenv.config();
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
-  DATABASE_URL: z.string().default(""),
+  DATABASE_URL: z
+    .string()
+    .default("mysql://root:root@127.0.0.1:3306/express_live_simulator_backend"),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
