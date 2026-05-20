@@ -1,12 +1,22 @@
 // Shared socket and room types define the realtime contract without introducing business logic.
 
-export type ParticipantRole = "recorder" | "operator" | "commenter";
+import {
+  RoomErrorCode,
+  SocketClientEvent,
+  SocketServerEvent,
+} from "../socket/events/events";
+
+export enum ParticipantRole {
+  RECORDER = "RECORDER",
+  OPERATOR = "OPERATOR",
+  COMMENTER = "COMMENTER",
+}
+
+export type OverlayMode = "idle" | "product" | "discount" | "comment";
 
 export interface RoomParticipant {
-  participantId: string;
   socketId: string;
   role: ParticipantRole;
-  joinedAt: Date;
 }
 
 export interface ActiveProductState {
@@ -22,61 +32,56 @@ export interface ActiveDiscountState {
   percentage: number;
 }
 
-export interface OverlayState {
-  overlayType: "idle" | "product" | "discount" | "comment";
+export interface CurrentOverlayState {
+  overlayType: OverlayMode;
+  visible: boolean;
   title?: string;
   subtitle?: string;
-  visible: boolean;
 }
 
 export interface RoomState {
   roomCode: string;
   participants: RoomParticipant[];
+  createdAt: Date;
   activeProduct: ActiveProductState | null;
   activeDiscount: ActiveDiscountState | null;
-  currentOverlay: OverlayState;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateRoomPayload {
-  roomCode: string;
+  currentOverlayState: CurrentOverlayState;
 }
 
 export interface JoinRoomPayload {
   roomCode: string;
-  participantId: string;
   role: ParticipantRole;
 }
 
-export interface ShowProductPayload {
+export interface RoomSnapshot {
   roomCode: string;
+  participants: RoomParticipant[];
 }
 
-export interface StartDiscountPayload {
-  roomCode: string;
-}
-
-export interface ShowCommentPayload {
-  roomCode: string;
+export interface RoomErrorPayload {
+  code: RoomErrorCode;
+  message: string;
+  roomCode?: string;
 }
 
 export interface SocketServerState {
   roomCode?: string;
-  participantId?: string;
   role?: ParticipantRole;
 }
 
 export interface ServerToClientEvents {
-  // TODO: define concrete outbound realtime events when the event contract is finalized.
-  ready: (payload: { message: string }) => void;
+  [SocketServerEvent.ROOM_CREATED]: (payload: RoomSnapshot) => void;
+  [SocketServerEvent.ROOM_JOINED]: (payload: RoomSnapshot) => void;
+  [SocketServerEvent.ROOM_UPDATED]: (payload: RoomState) => void;
+  [SocketServerEvent.ROOM_ERROR]: (payload: RoomErrorPayload) => void;
 }
 
 export interface ClientToServerEvents {
-  // TODO: bind event payloads to the finalized room and presentation workflow.
-  noop: () => void;
+  [SocketClientEvent.CREATE_ROOM]: () => void;
+  [SocketClientEvent.JOIN_ROOM]: (payload: JoinRoomPayload) => void;
+  [SocketClientEvent.LEAVE_ROOM]: () => void;
 }
 
 export interface InterServerEvents {
-  // TODO: add cross-node socket events when horizontal scaling is introduced.
+  // Reserved for multi-node coordination in a later scaling phase.
 }

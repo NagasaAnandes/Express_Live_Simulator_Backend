@@ -1,31 +1,143 @@
 import type { Server, Socket } from "socket.io";
 
-import { SOCKET_EVENTS } from "../events/events";
+import { SocketClientEvent, SocketServerEvent } from "../events/events";
+import { roomManager } from "../rooms/room.manager";
+import type {
+  ClientToServerEvents,
+  InterServerEvents,
+  ServerToClientEvents,
+  SocketServerState,
+} from "../../types/socket.types";
 
 // Socket connection wiring lives here so future room and role logic stays isolated from server bootstrap.
-export function registerConnectionHandler(io: Server): void {
-  io.on("connection", (socket: Socket) => {
-    // TODO: attach room lifecycle, role validation, and domain event listeners.
-    void socket;
+export function registerConnectionHandler(
+  io: Server<
+    ClientToServerEvents,
+    ServerToClientEvents,
+    InterServerEvents,
+    SocketServerState
+  >,
+): void {
+  const detachFromCurrentRoom = (
+    socket: Socket<
+      ClientToServerEvents,
+      ServerToClientEvents,
+      InterServerEvents,
+      SocketServerState
+    >,
+  ): void => {
+    const roomCode = socket.data.roomCode;
 
-    socket.on(SOCKET_EVENTS.CREATE_ROOM, () => {
-      // TODO: implement room creation flow.
+    if (!roomCode) {
+      return;
+    }
+
+    const leaveResult = roomManager.leaveRoom(socket.id);
+
+    socket.leave(roomCode);
+    socket.data.roomCode = undefined;
+    socket.data.role = undefined;
+
+    if (leaveResult?.room) {
+      socket
+        .to(leaveResult.roomCode)
+        .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+    }
+  };
+
+  io.on("connection", (socket) => {
+    socket.on(SocketClientEvent.CREATE_ROOM, () => {
+      detachFromCurrentRoom(socket);
+
+      const roomState = roomManager.createRoom(socket.id);
+
+      socket.data.roomCode = roomState.roomCode;
+      socket.data.role = roomState.participants[0]?.role;
+
+      socket.join(roomState.roomCode);
+
+      socket.emit(
+        SocketServerEvent.ROOM_CREATED,
+        roomManager.toSnapshot(roomState),
+      );
+
+      socket.emit(SocketServerEvent.ROOM_UPDATED, roomState);
     });
 
-    socket.on(SOCKET_EVENTS.JOIN_ROOM, () => {
-      // TODO: implement room join flow.
+    socket.on(SocketClientEvent.JOIN_ROOM, (payload) => {
+      detachFromCurrentRoom(socket);
+
+      const joinResult = roomManager.joinRoom(
+        payload.roomCode,
+        socket.id,
+        payload.role,
+      );
+
+      if (!joinResult.ok) {
+        socket.emit(SocketServerEvent.ROOM_ERROR, joinResult.error);
+        return;
+      }
+
+      socket.data.roomCode = joinResult.room.roomCode;
+      socket.data.role = payload.role;
+
+      socket.join(joinResult.room.roomCode);
+
+      socket.emit(
+        SocketServerEvent.ROOM_JOINED,
+        roomManager.toSnapshot(joinResult.room),
+      );
+
+      io.to(joinResult.room.roomCode).emit(
+        SocketServerEvent.ROOM_UPDATED,
+        joinResult.room,
+      );
     });
 
-    socket.on(SOCKET_EVENTS.SHOW_PRODUCT, () => {
-      // TODO: implement product broadcast flow.
+    socket.on(SocketClientEvent.LEAVE_ROOM, () => {
+      const roomCode = socket.data.roomCode;
+
+      if (!roomCode) {
+        return;
+      }
+
+      const leaveResult = roomManager.leaveRoom(socket.id);
+
+      socket.leave(roomCode);
+      socket.data.roomCode = undefined;
+      socket.data.role = undefined;
+
+      if (!leaveResult) {
+        return;
+      }
+
+      if (leaveResult.room) {
+        socket.emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+        socket
+          .to(leaveResult.roomCode)
+          .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+      }
     });
 
-    socket.on(SOCKET_EVENTS.START_DISCOUNT, () => {
-      // TODO: implement discount broadcast flow.
-    });
+    socket.on("disconnect", () => {
+      const roomCode = socket.data.roomCode;
 
-    socket.on(SOCKET_EVENTS.SHOW_COMMENT, () => {
-      // TODO: implement comment broadcast flow.
+      if (!roomCode) {
+        return;
+      }
+
+      const leaveResult = roomManager.leaveRoom(socket.id);
+
+      socket.data.roomCode = undefined;
+      socket.data.role = undefined;
+
+      if (!leaveResult || !leaveResult.room) {
+        return;
+      }
+
+      socket
+        .to(leaveResult.roomCode)
+        .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
     });
   });
 }

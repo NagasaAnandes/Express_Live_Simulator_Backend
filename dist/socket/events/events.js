@@ -1,11 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SOCKET_EVENTS = void 0;
+exports.RoomErrorCode = exports.SocketServerEvent = exports.SocketClientEvent = void 0;
 // Centralized socket event names keep the realtime contract consistent across modules.
-exports.SOCKET_EVENTS = {
-    CREATE_ROOM: "CREATE_ROOM",
-    JOIN_ROOM: "JOIN_ROOM",
-    SHOW_PRODUCT: "SHOW_PRODUCT",
-    START_DISCOUNT: "START_DISCOUNT",
-    SHOW_COMMENT: "SHOW_COMMENT",
-};
+var SocketClientEvent;
+(function (SocketClientEvent) {
+    SocketClientEvent["CREATE_ROOM"] = "CREATE_ROOM";
+    SocketClientEvent["JOIN_ROOM"] = "JOIN_ROOM";
+    SocketClientEvent["LEAVE_ROOM"] = "LEAVE_ROOM";
+})(SocketClientEvent || (exports.SocketClientEvent = SocketClientEvent = {}));
+var SocketServerEvent;
+(function (SocketServerEvent) {
+    SocketServerEvent["ROOM_CREATED"] = "ROOM_CREATED";
+    SocketServerEvent["ROOM_JOINED"] = "ROOM_JOINED";
+    SocketServerEvent["ROOM_UPDATED"] = "ROOM_UPDATED";
+    SocketServerEvent["ROOM_ERROR"] = "ROOM_ERROR";
+})(SocketServerEvent || (exports.SocketServerEvent = SocketServerEvent = {}));
+var RoomErrorCode;
+(function (RoomErrorCode) {
+    RoomErrorCode["ROOM_NOT_FOUND"] = "ROOM_NOT_FOUND";
+    RoomErrorCode["ROOM_FULL"] = "ROOM_FULL";
+    RoomErrorCode["ROLE_ALREADY_USED"] = "ROLE_ALREADY_USED";
+    RoomErrorCode["INVALID_ROLE"] = "INVALID_ROLE";
+})(RoomErrorCode || (exports.RoomErrorCode = RoomErrorCode = {}));
