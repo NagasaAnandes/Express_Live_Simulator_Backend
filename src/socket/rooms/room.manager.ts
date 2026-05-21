@@ -1,5 +1,5 @@
 import {
-  type ActiveDiscountState,
+  type ActiveDiscountOverlay,
   type ActiveProductOverlay,
   ParticipantRole,
   type CurrentOverlayState,
@@ -149,7 +149,7 @@ export class RoomManager {
 
   public setDiscountState(
     roomCode: string,
-    activeDiscount: ActiveDiscountState,
+    activeDiscount: ActiveDiscountOverlay,
   ): RoomState | null {
     const room = roomStore.get(roomCode);
 
@@ -174,7 +174,7 @@ export class RoomManager {
     }
 
     const nextRoom = this.cloneRoomState(room);
-    nextRoom.activeDiscount = null;
+    delete nextRoom.activeDiscount;
     nextRoom.lastActivityAt = new Date();
 
     this.saveRoom(nextRoom);
@@ -196,7 +196,6 @@ export class RoomManager {
         },
       ],
       createdAt: new Date(),
-      activeDiscount: null,
       currentOverlayState: this.createInitialOverlayState(),
       lastActivityAt: new Date(),
     };
@@ -216,9 +215,6 @@ export class RoomManager {
         ...participant,
       })),
       createdAt: new Date(roomState.createdAt),
-      activeDiscount: roomState.activeDiscount
-        ? { ...roomState.activeDiscount }
-        : null,
       currentOverlayState: { ...roomState.currentOverlayState },
       lastActivityAt: roomState.lastActivityAt
         ? new Date(roomState.lastActivityAt)
@@ -227,6 +223,10 @@ export class RoomManager {
 
     if (roomState.activeProduct) {
       clonedRoomState.activeProduct = { ...roomState.activeProduct };
+    }
+
+    if (roomState.activeDiscount) {
+      clonedRoomState.activeDiscount = { ...roomState.activeDiscount };
     }
 
     clonedRoomState.lastActivityAt = roomState.lastActivityAt

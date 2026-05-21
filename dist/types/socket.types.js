@@ -1,7 +1,7 @@
 "use strict";
 // Shared socket and room types define the realtime contract without introducing business logic.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ParticipantRole = void 0;
+exports.DiscountType = exports.ParticipantRole = void 0;
 const events_1 = require("../socket/events/events");
 var ParticipantRole;
 (function (ParticipantRole) {
@@ -9,3 +9,10 @@ var ParticipantRole;
     ParticipantRole["OPERATOR"] = "OPERATOR";
     ParticipantRole["COMMENTER"] = "COMMENTER";
 })(ParticipantRole || (exports.ParticipantRole = ParticipantRole = {}));
+var DiscountType;
+(function (DiscountType) {
+    DiscountType["PERCENTAGE"] = "PERCENTAGE";
+    DiscountType["FIXED"] = "FIXED";
+    DiscountType["FLASH_SALE"] = "FLASH_SALE";
+    DiscountType["FREE_SHIPPING"] = "FREE_SHIPPING";
+})(DiscountType || (exports.DiscountType = DiscountType = {}));

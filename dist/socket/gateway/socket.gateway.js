@@ -29,8 +29,13 @@ function emitProductCleared(io, roomCode, payload) {
     io.to(roomCode).emit(events_1.SERVER_EVENTS.PRODUCT_CLEARED, (0, response_builder_1.buildSuccessResponse)(payload));
 }
 function emitRoomError(socket, payload) {
-    socket.emit(events_1.SERVER_EVENTS.ROOM_ERROR, (0, response_builder_1.buildErrorResponse)(payload.code, payload.message, { roomCode: payload.roomCode }));
+    socket.emit(events_1.SERVER_EVENTS.ROOM_ERROR, (0, response_builder_1.buildErrorResponse)(payload.code, payload.message, {
+        roomCode: payload.roomCode,
+    }));
 }
 function emitProductError(socket, payload) {
-    socket.emit(events_1.SERVER_EVENTS.PRODUCT_ERROR, (0, response_builder_1.buildErrorResponse)(payload.code, payload.message, { roomCode: payload.roomCode, productId: payload.productId }));
+    socket.emit(events_1.SERVER_EVENTS.PRODUCT_ERROR, (0, response_builder_1.buildErrorResponse)(payload.code, payload.message, {
+        roomCode: payload.roomCode,
+        productId: payload.productId,
+    }));
 }

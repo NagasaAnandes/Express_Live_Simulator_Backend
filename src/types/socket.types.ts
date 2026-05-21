@@ -9,6 +9,13 @@ export enum ParticipantRole {
   COMMENTER = "COMMENTER",
 }
 
+export enum DiscountType {
+  PERCENTAGE = "PERCENTAGE",
+  FIXED = "FIXED",
+  FLASH_SALE = "FLASH_SALE",
+  FREE_SHIPPING = "FREE_SHIPPING",
+}
+
 export type OverlayMode = "idle" | "product" | "discount" | "comment";
 
 export interface ActiveProductOverlay {
@@ -23,10 +30,11 @@ export interface RoomParticipant {
   role: ParticipantRole;
 }
 
-export interface ActiveDiscountState {
-  discountId: string;
-  label: string;
-  percentage: number;
+export interface ActiveDiscountOverlay {
+  readonly type: DiscountType;
+  readonly value?: number;
+  readonly label: string;
+  readonly startedAt: Date;
 }
 
 export interface CurrentOverlayState {
@@ -41,7 +49,7 @@ export interface RoomState {
   participants: RoomParticipant[];
   createdAt: Date;
   activeProduct?: ActiveProductOverlay;
-  activeDiscount: ActiveDiscountState | null;
+  activeDiscount?: ActiveDiscountOverlay;
   currentOverlayState: CurrentOverlayState;
   lastActivityAt: Date;
 }
@@ -88,6 +96,33 @@ export interface ProductErrorPayload {
   productId?: string;
 }
 
+export interface DiscountStartPayload {
+  roomCode: string;
+  type: DiscountType;
+  value?: number;
+  label?: string;
+}
+
+export interface DiscountStopPayload {
+  roomCode: string;
+}
+
+export interface DiscountUpdatedPayload {
+  roomCode: string;
+  discount: ActiveDiscountOverlay;
+}
+
+export interface DiscountClearedPayload {
+  roomCode: string;
+}
+
+export interface DiscountErrorPayload {
+  code: string;
+  message: string;
+  roomCode?: string;
+  type?: DiscountType;
+}
+
 export interface SocketServerState {
   roomCode?: string;
   role?: ParticipantRole;
@@ -105,6 +140,13 @@ export interface ServerToClientEvents {
     payload: ApiResponse<ProductClearPayload>,
   ) => void;
   [SERVER_EVENTS.PRODUCT_ERROR]: (payload: ApiResponse<null>) => void;
+  [SERVER_EVENTS.DISCOUNT_UPDATED]: (
+    payload: ApiResponse<DiscountUpdatedPayload>,
+  ) => void;
+  [SERVER_EVENTS.DISCOUNT_CLEARED]: (
+    payload: ApiResponse<DiscountClearedPayload>,
+  ) => void;
+  [SERVER_EVENTS.DISCOUNT_ERROR]: (payload: ApiResponse<null>) => void;
 }
 
 export interface ClientToServerEvents {
@@ -113,6 +155,8 @@ export interface ClientToServerEvents {
   [CLIENT_EVENTS.LEAVE_ROOM]: () => void;
   [CLIENT_EVENTS.SHOW_PRODUCT]: (payload: ProductShowPayload) => void;
   [CLIENT_EVENTS.CLEAR_PRODUCT]: (payload: ProductClearPayload) => void;
+  [CLIENT_EVENTS.START_DISCOUNT]: (payload: DiscountStartPayload) => void;
+  [CLIENT_EVENTS.STOP_DISCOUNT]: (payload: DiscountStopPayload) => void;
 }
 
 export interface InterServerEvents {

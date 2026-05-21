@@ -108,7 +108,7 @@ class RoomManager {
             return null;
         }
         const nextRoom = this.cloneRoomState(room);
-        nextRoom.activeDiscount = null;
+        delete nextRoom.activeDiscount;
         nextRoom.lastActivityAt = new Date();
         this.saveRoom(nextRoom);
         return this.cloneRoomState(nextRoom);
@@ -126,7 +126,6 @@ class RoomManager {
                 },
             ],
             createdAt: new Date(),
-            activeDiscount: null,
             currentOverlayState: this.createInitialOverlayState(),
             lastActivityAt: new Date(),
         };
@@ -144,16 +143,20 @@ class RoomManager {
                 ...participant,
             })),
             createdAt: new Date(roomState.createdAt),
-            activeDiscount: roomState.activeDiscount
-                ? { ...roomState.activeDiscount }
-                : null,
             currentOverlayState: { ...roomState.currentOverlayState },
-            lastActivityAt: roomState.lastActivityAt ? new Date(roomState.lastActivityAt) : new Date(),
+            lastActivityAt: roomState.lastActivityAt
+                ? new Date(roomState.lastActivityAt)
+                : new Date(),
         };
         if (roomState.activeProduct) {
             clonedRoomState.activeProduct = { ...roomState.activeProduct };
         }
-        clonedRoomState.lastActivityAt = roomState.lastActivityAt ? new Date(roomState.lastActivityAt) : new Date();
+        if (roomState.activeDiscount) {
+            clonedRoomState.activeDiscount = { ...roomState.activeDiscount };
+        }
+        clonedRoomState.lastActivityAt = roomState.lastActivityAt
+            ? new Date(roomState.lastActivityAt)
+            : new Date();
         return clonedRoomState;
     }
     generateUniqueRoomCode() {

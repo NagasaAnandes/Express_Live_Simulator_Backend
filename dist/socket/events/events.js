@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProductErrorCode = exports.RoomErrorCode = exports.SERVER_EVENTS = exports.CLIENT_EVENTS = void 0;
+exports.DiscountErrorCode = exports.ProductErrorCode = exports.RoomErrorCode = exports.SERVER_EVENTS = exports.CLIENT_EVENTS = void 0;
 // Centralized socket event names keep the realtime contract consistent across modules.
 exports.CLIENT_EVENTS = {
     CREATE_ROOM: "CREATE_ROOM",
@@ -8,6 +8,8 @@ exports.CLIENT_EVENTS = {
     LEAVE_ROOM: "LEAVE_ROOM",
     SHOW_PRODUCT: "SHOW_PRODUCT",
     CLEAR_PRODUCT: "CLEAR_PRODUCT",
+    START_DISCOUNT: "START_DISCOUNT",
+    STOP_DISCOUNT: "STOP_DISCOUNT",
 };
 exports.SERVER_EVENTS = {
     ROOM_CREATED: "ROOM_CREATED",
@@ -17,6 +19,9 @@ exports.SERVER_EVENTS = {
     PRODUCT_UPDATED: "PRODUCT_UPDATED",
     PRODUCT_CLEARED: "PRODUCT_CLEARED",
     PRODUCT_ERROR: "PRODUCT_ERROR",
+    DISCOUNT_UPDATED: "DISCOUNT_UPDATED",
+    DISCOUNT_CLEARED: "DISCOUNT_CLEARED",
+    DISCOUNT_ERROR: "DISCOUNT_ERROR",
 };
 var RoomErrorCode;
 (function (RoomErrorCode) {
@@ -32,3 +37,12 @@ var ProductErrorCode;
     ProductErrorCode["INVALID_ROLE"] = "INVALID_ROLE";
     ProductErrorCode["PRODUCT_NOT_FOUND"] = "PRODUCT_NOT_FOUND";
 })(ProductErrorCode || (exports.ProductErrorCode = ProductErrorCode = {}));
+var DiscountErrorCode;
+(function (DiscountErrorCode) {
+    DiscountErrorCode["ROOM_NOT_FOUND"] = "ROOM_NOT_FOUND";
+    DiscountErrorCode["ROOM_MISMATCH"] = "ROOM_MISMATCH";
+    DiscountErrorCode["INVALID_ROLE"] = "INVALID_ROLE";
+    DiscountErrorCode["INVALID_TYPE"] = "INVALID_TYPE";
+    DiscountErrorCode["INVALID_VALUE"] = "INVALID_VALUE";
+    DiscountErrorCode["LABEL_REQUIRED"] = "LABEL_REQUIRED";
+})(DiscountErrorCode || (exports.DiscountErrorCode = DiscountErrorCode = {}));
