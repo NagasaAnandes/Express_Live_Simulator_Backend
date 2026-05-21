@@ -2,14 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.roomManager = exports.RoomManager = void 0;
 const socket_types_1 = require("../../types/socket.types");
-const events_1 = require("../events/events");
 const room_store_1 = require("../state/room.store");
-const ROOM_ERROR_MESSAGES = {
-    [events_1.RoomErrorCode.ROOM_NOT_FOUND]: "Room not found.",
-    [events_1.RoomErrorCode.ROOM_FULL]: "Room already has the maximum number of participants.",
-    [events_1.RoomErrorCode.ROLE_ALREADY_USED]: "That role is already taken in the room.",
-    [events_1.RoomErrorCode.INVALID_ROLE]: "Invalid room role.",
-};
+const room_snapshot_mapper_1 = require("../../modules/room/mappers/room.snapshot.mapper");
 // RoomManager owns all in-memory room lifecycle access so socket handlers stay thin.
 class RoomManager {
     getRoom(roomCode) {
@@ -21,7 +15,7 @@ class RoomManager {
     saveRoom(roomState) {
         room_store_1.roomStore.set(roomState.roomCode, roomState);
     }
-    removeRoom(roomCode) {
+    deleteRoom(roomCode) {
         return room_store_1.roomStore.delete(roomCode);
     }
     listRooms() {
@@ -33,47 +27,55 @@ class RoomManager {
         this.saveRoom(roomState);
         return this.cloneRoomState(roomState);
     }
-    joinRoom(roomCode, socketId, role) {
-        const room = room_store_1.roomStore.get(roomCode);
-        if (!room) {
-            return this.createJoinError(events_1.RoomErrorCode.ROOM_NOT_FOUND, roomCode);
-        }
-        if (!this.isParticipantRole(role)) {
-            return this.createJoinError(events_1.RoomErrorCode.INVALID_ROLE, roomCode);
-        }
-        if (room.participants.some((participant) => participant.role === role)) {
-            return this.createJoinError(events_1.RoomErrorCode.ROLE_ALREADY_USED, roomCode);
-        }
-        if (room.participants.length >= 3) {
-            return this.createJoinError(events_1.RoomErrorCode.ROOM_FULL, roomCode);
-        }
-        const nextRoom = this.cloneRoomState(room);
-        nextRoom.participants = [
-            ...nextRoom.participants,
-            {
-                socketId,
-                role,
-            },
-        ];
-        this.saveRoom(nextRoom);
-        return {
-            ok: true,
-            room: this.cloneRoomState(nextRoom),
-        };
-    }
-    setActiveProduct(roomCode, product) {
+    joinParticipant(roomCode, participant) {
         const room = room_store_1.roomStore.get(roomCode);
         if (!room) {
             return null;
         }
         const nextRoom = this.cloneRoomState(room);
-        nextRoom.activeProduct = this.cloneProduct(product);
+        nextRoom.participants = [...nextRoom.participants, { ...participant }];
+        nextRoom.lastActivityAt = new Date();
+        this.saveRoom(nextRoom);
+        return this.cloneRoomState(nextRoom);
+    }
+    removeParticipant(socketId) {
+        const room = this.getRoomBySocketId(socketId);
+        if (!room) {
+            return null;
+        }
+        const nextParticipants = room.participants.filter((participant) => participant.socketId !== socketId);
+        if (nextParticipants.length === 0) {
+            this.deleteRoom(room.roomCode);
+            return {
+                roomCode: room.roomCode,
+                room: null,
+                deleted: true,
+            };
+        }
+        const nextRoom = this.cloneRoomState(room);
+        nextRoom.participants = nextParticipants;
+        nextRoom.lastActivityAt = new Date();
+        this.saveRoom(nextRoom);
+        return {
+            roomCode: nextRoom.roomCode,
+            room: this.cloneRoomState(nextRoom),
+            deleted: false,
+        };
+    }
+    setActiveProduct(roomCode, activeProduct) {
+        const room = room_store_1.roomStore.get(roomCode);
+        if (!room) {
+            return null;
+        }
+        const nextRoom = this.cloneRoomState(room);
+        nextRoom.activeProduct = { ...activeProduct };
         nextRoom.currentOverlayState = {
             overlayType: "product",
             visible: true,
-            title: product.name,
-            subtitle: product.description ?? undefined,
+            title: activeProduct.name,
+            subtitle: undefined,
         };
+        nextRoom.lastActivityAt = new Date();
         this.saveRoom(nextRoom);
         return this.cloneRoomState(nextRoom);
     }
@@ -85,55 +87,34 @@ class RoomManager {
         const nextRoom = this.cloneRoomState(room);
         delete nextRoom.activeProduct;
         nextRoom.currentOverlayState = this.createInitialOverlayState();
+        nextRoom.lastActivityAt = new Date();
         this.saveRoom(nextRoom);
         return this.cloneRoomState(nextRoom);
     }
-    leaveRoom(socketId) {
-        const room = this.getRoomBySocketId(socketId);
+    setDiscountState(roomCode, activeDiscount) {
+        const room = room_store_1.roomStore.get(roomCode);
         if (!room) {
             return null;
         }
-        const nextParticipants = room.participants.filter((participant) => participant.socketId !== socketId);
-        if (nextParticipants.length === 0) {
-            this.removeRoom(room.roomCode);
-            return {
-                roomCode: room.roomCode,
-                room: null,
-                deleted: true,
-            };
+        const nextRoom = this.cloneRoomState(room);
+        nextRoom.activeDiscount = { ...activeDiscount };
+        nextRoom.lastActivityAt = new Date();
+        this.saveRoom(nextRoom);
+        return this.cloneRoomState(nextRoom);
+    }
+    clearDiscountState(roomCode) {
+        const room = room_store_1.roomStore.get(roomCode);
+        if (!room) {
+            return null;
         }
         const nextRoom = this.cloneRoomState(room);
-        nextRoom.participants = nextParticipants;
+        nextRoom.activeDiscount = null;
+        nextRoom.lastActivityAt = new Date();
         this.saveRoom(nextRoom);
-        return {
-            roomCode: nextRoom.roomCode,
-            room: this.cloneRoomState(nextRoom),
-            deleted: false,
-        };
+        return this.cloneRoomState(nextRoom);
     }
     toSnapshot(roomState) {
-        return {
-            roomCode: roomState.roomCode,
-            participants: roomState.participants.map((participant) => ({
-                ...participant,
-            })),
-        };
-    }
-    isParticipantRole(value) {
-        return Object.values(socket_types_1.ParticipantRole).includes(value);
-    }
-    createRoomError(code, roomCode) {
-        return {
-            code,
-            message: ROOM_ERROR_MESSAGES[code],
-            roomCode,
-        };
-    }
-    createJoinError(code, roomCode) {
-        return {
-            ok: false,
-            error: this.createRoomError(code, roomCode),
-        };
+        return (0, room_snapshot_mapper_1.toRoomSnapshot)(roomState);
     }
     createEmptyRoomState(roomCode, socketId) {
         return {
@@ -147,6 +128,7 @@ class RoomManager {
             createdAt: new Date(),
             activeDiscount: null,
             currentOverlayState: this.createInitialOverlayState(),
+            lastActivityAt: new Date(),
         };
     }
     createInitialOverlayState() {
@@ -166,17 +148,13 @@ class RoomManager {
                 ? { ...roomState.activeDiscount }
                 : null,
             currentOverlayState: { ...roomState.currentOverlayState },
+            lastActivityAt: roomState.lastActivityAt ? new Date(roomState.lastActivityAt) : new Date(),
         };
         if (roomState.activeProduct) {
-            clonedRoomState.activeProduct = this.cloneProduct(roomState.activeProduct);
+            clonedRoomState.activeProduct = { ...roomState.activeProduct };
         }
+        clonedRoomState.lastActivityAt = roomState.lastActivityAt ? new Date(roomState.lastActivityAt) : new Date();
         return clonedRoomState;
-    }
-    cloneProduct(product) {
-        return {
-            ...product,
-            createdAt: new Date(product.createdAt),
-        };
     }
     generateUniqueRoomCode() {
         let roomCode = "";

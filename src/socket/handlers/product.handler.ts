@@ -2,6 +2,7 @@ import type { Product } from "@prisma/client";
 import type { Server, Socket } from "socket.io";
 
 import { productService } from "../../modules/product/product.service";
+import { mapProductToOverlay } from "../../utils/product.mapper";
 import {
   ParticipantRole,
   type ClientToServerEvents,
@@ -9,15 +10,21 @@ import {
   type ProductClearPayload,
   type ProductErrorPayload,
   type ProductShowPayload,
+  type ProductOverlayPayload,
   type ServerToClientEvents,
   type SocketServerState,
+  type RoomState,
 } from "../../types/socket.types";
-import {
-  ProductErrorCode,
-  SocketClientEvent,
-  SocketServerEvent,
-} from "../events/events";
+import { CLIENT_EVENTS } from "../events/events";
+import { ProductErrorCode } from "../../types/error.types";
 import { roomManager } from "../rooms/room.manager";
+import {
+  emitProductUpdated,
+  emitProductCleared,
+  emitProductError,
+  emitProductUpdatedToSocket,
+  emitRoomUpdated,
+} from "../gateway/socket.gateway";
 
 const PRODUCT_ERROR_MESSAGES: Record<ProductErrorCode, string> = {
   [ProductErrorCode.ROOM_NOT_FOUND]: "Room not found.",
@@ -54,18 +61,6 @@ function createProductError(
   };
 }
 
-function emitProductError(
-  socket: RealtimeSocket,
-  code: ProductErrorCode,
-  roomCode?: string,
-  productId?: string,
-): void {
-  socket.emit(
-    SocketServerEvent.PRODUCT_ERROR,
-    createProductError(code, roomCode, productId),
-  );
-}
-
 function assertProductOverlayAccess(
   socket: RealtimeSocket,
   payload: ProductShowPayload | ProductClearPayload,
@@ -89,22 +84,9 @@ function assertProductOverlayAccess(
   return null;
 }
 
-function emitRoomOverlayState(io: RealtimeServer, roomCode: string): void {
-  const room = roomManager.getRoom(roomCode);
-
-  if (!room) {
-    return;
-  }
-
-  io.to(roomCode).emit(SocketServerEvent.ROOM_UPDATED, room);
-}
-
 export function syncRecorderProductOverlay(
   socket: RealtimeSocket,
-  roomState: {
-    roomCode: string;
-    activeProduct?: Product;
-  },
+  roomState: RoomState,
 ): void {
   if (
     socket.data.role !== ParticipantRole.RECORDER ||
@@ -113,7 +95,7 @@ export function syncRecorderProductOverlay(
     return;
   }
 
-  socket.emit(SocketServerEvent.PRODUCT_UPDATED, {
+  emitProductUpdatedToSocket(socket, {
     roomCode: roomState.roomCode,
     product: roomState.activeProduct,
   });
@@ -121,59 +103,73 @@ export function syncRecorderProductOverlay(
 
 export function registerProductHandler(io: RealtimeServer): void {
   io.on("connection", (socket) => {
-    socket.on(SocketClientEvent.SHOW_PRODUCT, async (payload) => {
+    socket.on(
+      CLIENT_EVENTS.SHOW_PRODUCT,
+      async (payload: ProductShowPayload) => {
+        const accessError = assertProductOverlayAccess(socket, payload);
+
+        if (accessError) {
+          emitProductError(
+            socket,
+            createProductError(
+              accessError,
+              payload.roomCode,
+              payload.productId,
+            ),
+          );
+          return;
+        }
+
+        const product = await productService.getProductById(payload.productId);
+
+        if (!product) {
+          emitProductError(
+            socket,
+            createProductError(
+              ProductErrorCode.PRODUCT_NOT_FOUND,
+              payload.roomCode,
+              payload.productId,
+            ),
+          );
+          return;
+        }
+
+        const overlay = mapProductToOverlay(product);
+
+        const updatedRoom = roomManager.setActiveProduct(
+          payload.roomCode,
+          overlay,
+        );
+
+        if (!updatedRoom || !updatedRoom.activeProduct) {
+          emitProductError(
+            socket,
+            createProductError(
+              ProductErrorCode.ROOM_NOT_FOUND,
+              payload.roomCode,
+              payload.productId,
+            ),
+          );
+          return;
+        }
+
+        emitProductUpdated(io, payload.roomCode, {
+          roomCode: payload.roomCode,
+          product: updatedRoom.activeProduct,
+        });
+
+        emitRoomUpdated(io, payload.roomCode, updatedRoom);
+      },
+    );
+
+    socket.on(CLIENT_EVENTS.CLEAR_PRODUCT, (payload: ProductClearPayload) => {
       const accessError = assertProductOverlayAccess(socket, payload);
 
       if (accessError) {
         emitProductError(
           socket,
-          accessError,
-          payload.roomCode,
-          payload.productId,
+          createProductError(accessError, payload.roomCode),
         );
-        return;
-      }
-
-      const product = await productService.getProductById(payload.productId);
-
-      if (!product) {
-        emitProductError(
-          socket,
-          ProductErrorCode.PRODUCT_NOT_FOUND,
-          payload.roomCode,
-          payload.productId,
-        );
-        return;
-      }
-
-      const updatedRoom = roomManager.setActiveProduct(
-        payload.roomCode,
-        product,
-      );
-
-      if (!updatedRoom || !updatedRoom.activeProduct) {
-        emitProductError(
-          socket,
-          ProductErrorCode.ROOM_NOT_FOUND,
-          payload.roomCode,
-          payload.productId,
-        );
-        return;
-      }
-
-      io.to(payload.roomCode).emit(SocketServerEvent.PRODUCT_UPDATED, {
-        roomCode: payload.roomCode,
-        product: updatedRoom.activeProduct,
-      });
-
-      emitRoomOverlayState(io, payload.roomCode);
-    });
-
-    socket.on(SocketClientEvent.CLEAR_PRODUCT, (payload) => {
-      const accessError = assertProductOverlayAccess(socket, payload);
-
-      if (accessError) {
-        emitProductError(socket, accessError, payload.roomCode);
         return;
       }
 
@@ -182,17 +178,14 @@ export function registerProductHandler(io: RealtimeServer): void {
       if (!updatedRoom) {
         emitProductError(
           socket,
-          ProductErrorCode.ROOM_NOT_FOUND,
-          payload.roomCode,
+          createProductError(ProductErrorCode.ROOM_NOT_FOUND, payload.roomCode),
         );
         return;
       }
 
-      io.to(payload.roomCode).emit(SocketServerEvent.PRODUCT_CLEARED, {
-        roomCode: payload.roomCode,
-      });
+      emitProductCleared(io, payload.roomCode, { roomCode: payload.roomCode });
 
-      emitRoomOverlayState(io, payload.roomCode);
+      emitRoomUpdated(io, payload.roomCode, updatedRoom);
     });
   });
 }

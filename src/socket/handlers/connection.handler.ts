@@ -1,11 +1,18 @@
 import type { Server, Socket } from "socket.io";
 
-import { SocketClientEvent, SocketServerEvent } from "../events/events";
+import { CLIENT_EVENTS } from "../events/events";
 import {
   registerProductHandler,
   syncRecorderProductOverlay,
 } from "./product.handler";
+import { roomService } from "../../modules/room/room.service";
 import { roomManager } from "../rooms/room.manager";
+import {
+  emitRoomCreated,
+  emitRoomJoined,
+  emitRoomUpdated,
+  emitRoomError,
+} from "../gateway/socket.gateway";
 import type {
   ClientToServerEvents,
   InterServerEvents,
@@ -38,49 +45,44 @@ export function registerConnectionHandler(
       return;
     }
 
-    const leaveResult = roomManager.leaveRoom(socket.id);
+    const leaveResult = roomService.removeParticipant(socket.id);
 
     socket.leave(roomCode);
     socket.data.roomCode = undefined;
     socket.data.role = undefined;
 
     if (leaveResult?.room) {
-      socket
-        .to(leaveResult.roomCode)
-        .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+      emitRoomUpdated(io, leaveResult.roomCode, leaveResult.room);
     }
   };
 
   io.on("connection", (socket) => {
-    socket.on(SocketClientEvent.CREATE_ROOM, () => {
+    socket.on(CLIENT_EVENTS.CREATE_ROOM, () => {
       detachFromCurrentRoom(socket);
 
-      const roomState = roomManager.createRoom(socket.id);
+      const roomState = roomService.createRoom(socket.id);
 
       socket.data.roomCode = roomState.roomCode;
       socket.data.role = roomState.participants[0]?.role;
 
       socket.join(roomState.roomCode);
 
-      socket.emit(
-        SocketServerEvent.ROOM_CREATED,
-        roomManager.toSnapshot(roomState),
-      );
+      emitRoomCreated(socket, roomManager.toSnapshot(roomState));
 
-      socket.emit(SocketServerEvent.ROOM_UPDATED, roomState);
+      emitRoomUpdated(io, roomState.roomCode, roomState);
     });
 
-    socket.on(SocketClientEvent.JOIN_ROOM, (payload) => {
+    socket.on(CLIENT_EVENTS.JOIN_ROOM, (payload) => {
       detachFromCurrentRoom(socket);
 
-      const joinResult = roomManager.joinRoom(
+      const joinResult = roomService.joinParticipant(
         payload.roomCode,
         socket.id,
         payload.role,
       );
 
       if (!joinResult.ok) {
-        socket.emit(SocketServerEvent.ROOM_ERROR, joinResult.error);
+        emitRoomError(socket, joinResult.error);
         return;
       }
 
@@ -89,27 +91,21 @@ export function registerConnectionHandler(
 
       socket.join(joinResult.room.roomCode);
 
-      socket.emit(
-        SocketServerEvent.ROOM_JOINED,
-        roomManager.toSnapshot(joinResult.room),
-      );
+      emitRoomJoined(socket, roomManager.toSnapshot(joinResult.room));
 
-      io.to(joinResult.room.roomCode).emit(
-        SocketServerEvent.ROOM_UPDATED,
-        joinResult.room,
-      );
+      emitRoomUpdated(io, joinResult.room.roomCode, joinResult.room);
 
       syncRecorderProductOverlay(socket, joinResult.room);
     });
 
-    socket.on(SocketClientEvent.LEAVE_ROOM, () => {
+    socket.on(CLIENT_EVENTS.LEAVE_ROOM, () => {
       const roomCode = socket.data.roomCode;
 
       if (!roomCode) {
         return;
       }
 
-      const leaveResult = roomManager.leaveRoom(socket.id);
+      const leaveResult = roomService.removeParticipant(socket.id);
 
       socket.leave(roomCode);
       socket.data.roomCode = undefined;
@@ -120,10 +116,7 @@ export function registerConnectionHandler(
       }
 
       if (leaveResult.room) {
-        socket.emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
-        socket
-          .to(leaveResult.roomCode)
-          .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+        emitRoomUpdated(io, leaveResult.roomCode, leaveResult.room);
       }
     });
 
@@ -134,7 +127,7 @@ export function registerConnectionHandler(
         return;
       }
 
-      const leaveResult = roomManager.leaveRoom(socket.id);
+      const leaveResult = roomService.removeParticipant(socket.id);
 
       socket.data.roomCode = undefined;
       socket.data.role = undefined;
@@ -143,9 +136,7 @@ export function registerConnectionHandler(
         return;
       }
 
-      socket
-        .to(leaveResult.roomCode)
-        .emit(SocketServerEvent.ROOM_UPDATED, leaveResult.room);
+      emitRoomUpdated(io, leaveResult.roomCode, leaveResult.room);
     });
   });
 }
