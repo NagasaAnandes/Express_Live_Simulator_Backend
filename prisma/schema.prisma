@@ -15,3 +15,10 @@ model Product {
   stock       Int
   createdAt   DateTime @default(now())
 }
+
+model CommentTemplate {
+  id        String   @id @default(uuid())
+  category  String
+  message   String
+  createdAt DateTime @default(now())
+}

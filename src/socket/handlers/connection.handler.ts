@@ -9,6 +9,10 @@ import {
   registerDiscountHandler,
   syncRecorderDiscountOverlay,
 } from "./discount.handler";
+import {
+  registerCommentHandler,
+  syncRecorderCommentQueue,
+} from "./comment.handler";
 import { roomService } from "../../modules/room/room.service";
 import { roomManager } from "../rooms/room.manager";
 import {
@@ -35,6 +39,7 @@ export function registerConnectionHandler(
 ): void {
   registerProductHandler(io);
   registerDiscountHandler(io);
+  registerCommentHandler(io);
 
   const detachFromCurrentRoom = (
     socket: Socket<
@@ -102,6 +107,7 @@ export function registerConnectionHandler(
 
       syncRecorderProductOverlay(socket, joinResult.room);
       syncRecorderDiscountOverlay(socket, joinResult.room);
+      syncRecorderCommentQueue(socket, joinResult.room);
     });
 
     socket.on(CLIENT_EVENTS.LEAVE_ROOM, () => {

@@ -1,5 +1,6 @@
 import {
   type ActiveDiscountOverlay,
+  type ActiveCommentOverlay,
   type ActiveProductOverlay,
   ParticipantRole,
   type CurrentOverlayState,
@@ -9,6 +10,11 @@ import {
 } from "../../types/socket.types";
 import { roomStore } from "../state/room.store";
 import { toRoomSnapshot } from "../../modules/room/mappers/room.snapshot.mapper";
+import {
+  appendComment as appendCommentToQueue,
+  clearExpiredComments as pruneCommentQueue,
+} from "../../modules/comment/queue/comment.queue";
+import { cloneActiveCommentOverlay } from "../../modules/comment/mappers/comment.mapper";
 
 export interface RoomLeaveResult {
   roomCode: string;
@@ -182,6 +188,73 @@ export class RoomManager {
     return this.cloneRoomState(nextRoom);
   }
 
+  public appendComment(
+    roomCode: string,
+    comment: ActiveCommentOverlay,
+  ): RoomState | null {
+    const room = roomStore.get(roomCode);
+
+    if (!room) {
+      return null;
+    }
+
+    const nextRoom = this.cloneRoomState(room);
+    nextRoom.activeComments = appendCommentToQueue(
+      nextRoom.activeComments,
+      comment,
+    );
+    nextRoom.lastActivityAt = new Date();
+
+    this.saveRoom(nextRoom);
+
+    return this.cloneRoomState(nextRoom);
+  }
+
+  public clearExpiredComments(roomCode: string): RoomState | null {
+    const room = roomStore.get(roomCode);
+
+    if (!room) {
+      return null;
+    }
+
+    const prunedComments = pruneCommentQueue(room.activeComments);
+
+    if (prunedComments.length === room.activeComments.length) {
+      return this.cloneRoomState(room);
+    }
+
+    const nextRoom = this.cloneRoomState(room);
+    nextRoom.activeComments = prunedComments;
+
+    this.saveRoom(nextRoom);
+
+    return this.cloneRoomState(nextRoom);
+  }
+
+  public getActiveComments(roomCode: string): ActiveCommentOverlay[] | null {
+    const room = roomStore.get(roomCode);
+
+    if (!room) {
+      return null;
+    }
+
+    const prunedComments = pruneCommentQueue(room.activeComments);
+
+    if (prunedComments.length !== room.activeComments.length) {
+      const nextRoom = this.cloneRoomState(room);
+      nextRoom.activeComments = prunedComments;
+      this.saveRoom(nextRoom);
+
+      return nextRoom.activeComments.map((comment) =>
+        cloneActiveCommentOverlay(comment),
+      );
+    }
+
+    return room.activeComments.map((comment) =>
+      cloneActiveCommentOverlay(comment),
+    );
+  }
+
   public toSnapshot(roomState: RoomState): RoomSnapshot {
     return toRoomSnapshot(roomState);
   }
@@ -196,6 +269,7 @@ export class RoomManager {
         },
       ],
       createdAt: new Date(),
+      activeComments: [],
       currentOverlayState: this.createInitialOverlayState(),
       lastActivityAt: new Date(),
     };
@@ -215,6 +289,9 @@ export class RoomManager {
         ...participant,
       })),
       createdAt: new Date(roomState.createdAt),
+      activeComments: roomState.activeComments.map((comment) =>
+        cloneActiveCommentOverlay(comment),
+      ),
       currentOverlayState: { ...roomState.currentOverlayState },
       lastActivityAt: roomState.lastActivityAt
         ? new Date(roomState.lastActivityAt)

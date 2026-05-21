@@ -23,6 +23,14 @@ export enum DiscountErrorCode {
   LABEL_REQUIRED = "LABEL_REQUIRED",
 }
 
+export enum CommentErrorCode {
+  ROOM_NOT_FOUND = "ROOM_NOT_FOUND",
+  ROOM_MISMATCH = "ROOM_MISMATCH",
+  INVALID_ROLE = "INVALID_ROLE",
+  INVALID_CATEGORY = "INVALID_CATEGORY",
+  TEMPLATE_NOT_FOUND = "TEMPLATE_NOT_FOUND",
+}
+
 export enum AppErrorCode {
   UNKNOWN = "UNKNOWN",
   UNAUTHORIZED_ROLE = "UNAUTHORIZED_ROLE",
@@ -33,6 +41,7 @@ export interface ErrorPayload {
     | RoomErrorCode
     | ProductErrorCode
     | DiscountErrorCode
+    | CommentErrorCode
     | AppErrorCode
     | string;
   message: string;

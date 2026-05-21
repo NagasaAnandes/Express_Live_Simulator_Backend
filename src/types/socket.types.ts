@@ -16,6 +16,15 @@ export enum DiscountType {
   FREE_SHIPPING = "FREE_SHIPPING",
 }
 
+export enum CommentCategory {
+  PRICE = "PRICE",
+  HYPE = "HYPE",
+  DISCOUNT = "DISCOUNT",
+  CHECKOUT = "CHECKOUT",
+  STOCK = "STOCK",
+  COD = "COD",
+}
+
 export type OverlayMode = "idle" | "product" | "discount" | "comment";
 
 export interface ActiveProductOverlay {
@@ -37,6 +46,14 @@ export interface ActiveDiscountOverlay {
   readonly startedAt: Date;
 }
 
+export interface ActiveCommentOverlay {
+  readonly id: string;
+  readonly category: CommentCategory;
+  readonly username: string;
+  readonly message: string;
+  readonly createdAt: Date;
+}
+
 export interface CurrentOverlayState {
   overlayType: OverlayMode;
   visible: boolean;
@@ -50,6 +67,7 @@ export interface RoomState {
   createdAt: Date;
   activeProduct?: ActiveProductOverlay;
   activeDiscount?: ActiveDiscountOverlay;
+  activeComments: ActiveCommentOverlay[];
   currentOverlayState: CurrentOverlayState;
   lastActivityAt: Date;
 }
@@ -123,6 +141,28 @@ export interface DiscountErrorPayload {
   type?: DiscountType;
 }
 
+export interface CommentTriggerPayload {
+  roomCode: string;
+  category: CommentCategory;
+}
+
+export interface CommentReceivedPayload {
+  roomCode: string;
+  comment: ActiveCommentOverlay;
+}
+
+export interface CommentQueueUpdatedPayload {
+  roomCode: string;
+  activeComments: ActiveCommentOverlay[];
+}
+
+export interface CommentErrorPayload {
+  code: string;
+  message: string;
+  roomCode?: string;
+  category?: CommentCategory;
+}
+
 export interface SocketServerState {
   roomCode?: string;
   role?: ParticipantRole;
@@ -147,6 +187,13 @@ export interface ServerToClientEvents {
     payload: ApiResponse<DiscountClearedPayload>,
   ) => void;
   [SERVER_EVENTS.DISCOUNT_ERROR]: (payload: ApiResponse<null>) => void;
+  [SERVER_EVENTS.COMMENT_RECEIVED]: (
+    payload: ApiResponse<CommentReceivedPayload>,
+  ) => void;
+  [SERVER_EVENTS.COMMENT_QUEUE_UPDATED]: (
+    payload: ApiResponse<CommentQueueUpdatedPayload>,
+  ) => void;
+  [SERVER_EVENTS.COMMENT_ERROR]: (payload: ApiResponse<null>) => void;
 }
 
 export interface ClientToServerEvents {
@@ -157,6 +204,7 @@ export interface ClientToServerEvents {
   [CLIENT_EVENTS.CLEAR_PRODUCT]: (payload: ProductClearPayload) => void;
   [CLIENT_EVENTS.START_DISCOUNT]: (payload: DiscountStartPayload) => void;
   [CLIENT_EVENTS.STOP_DISCOUNT]: (payload: DiscountStopPayload) => void;
+  [CLIENT_EVENTS.TRIGGER_COMMENT]: (payload: CommentTriggerPayload) => void;
 }
 
 export interface InterServerEvents {
